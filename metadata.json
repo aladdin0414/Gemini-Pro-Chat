@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Pro Chat",
+  "description": "A ChatGPT-like interface powered by Google Gemini 2.5 Flash. Features chat history, search, and persistent local storage.",
+  "requestFramePermissions": []
+}
