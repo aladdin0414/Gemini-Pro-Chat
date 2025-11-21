@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import MessageItem from './components/MessageItem';
@@ -78,26 +79,29 @@ const App: React.FC = () => {
 
   // Initial Data Load
   useEffect(() => {
-    const storedSessions = getSessions();
-    setSessions(storedSessions);
-    if (storedSessions.length > 0) {
-      setCurrentSessionId(storedSessions[0].id);
-    } else {
-      // We will create a session but we need to make sure 't' is ready if we used it for title, 
-      // though createSession uses default "New Chat" (which we can't easily translate inside dbService without coupling).
-      // We'll update the UI title via sessions state mapping if needed, but standardizing on "New Chat" in DB is fine.
-      handleCreateSession();
-    }
+    const loadData = async () => {
+      const storedSessions = await getSessions();
+      setSessions(storedSessions);
+      if (storedSessions.length > 0) {
+        setCurrentSessionId(storedSessions[0].id);
+      } else {
+        handleCreateSession();
+      }
+    };
+    loadData();
   }, []);
 
   // Load Messages when session changes
   useEffect(() => {
-    if (currentSessionId) {
-      const sessionMessages = getMessagesBySession(currentSessionId);
-      setMessages(sessionMessages);
-    } else {
-      setMessages([]);
-    }
+    const loadMessages = async () => {
+      if (currentSessionId) {
+        const sessionMessages = await getMessagesBySession(currentSessionId);
+        setMessages(sessionMessages);
+      } else {
+        setMessages([]);
+      }
+    };
+    loadMessages();
   }, [currentSessionId]);
 
   // Auto-scroll to bottom
@@ -113,20 +117,22 @@ const App: React.FC = () => {
     }
   }, [inputValue]);
 
-  const handleCreateSession = () => {
-    // Use current language for default title if possible, otherwise default to English in DB, 
-    // but display translated "New Chat" in Sidebar if title matches default.
-    const newSession = createSession(); 
+  const handleCreateSession = async () => {
+    const newSession = await createSession(); 
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
-  const handleDeleteSession = (id: string) => {
-    deleteSession(id);
+  const handleDeleteSession = async (id: string) => {
+    // Optimistic update
+    const prevSessions = [...sessions];
     setSessions(prev => prev.filter(s => s.id !== id));
+    
+    await deleteSession(id);
+    
     if (currentSessionId === id) {
-      const remaining = sessions.filter(s => s.id !== id);
+      const remaining = prevSessions.filter(s => s.id !== id);
       if (remaining.length > 0) {
         setCurrentSessionId(remaining[0].id);
       } else {
@@ -142,9 +148,19 @@ const App: React.FC = () => {
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    // 1. Save User Message
-    const userMsg = saveMessage(currentSessionId, Role.User, textToSend);
+    // 1. Save User Message (Optimistic UI)
+    const userMsgId = uuidv4();
+    const userMsg: Message = {
+      id: userMsgId,
+      sessionId: currentSessionId,
+      role: Role.User,
+      content: textToSend,
+      timestamp: Date.now()
+    };
     setMessages(prev => [...prev, userMsg]);
+    
+    // Background Save
+    saveMessage(currentSessionId, Role.User, textToSend).catch(err => console.error(err));
 
     setIsGenerating(true);
 
@@ -162,9 +178,11 @@ const App: React.FC = () => {
     // 3. Generate Title if it's the first message
     const currentSession = sessions.find(s => s.id === currentSessionId);
     if (currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话') && messages.length === 0) {
-       generateTitle(textToSend, language).then(newTitle => {
-         updateSession(currentSessionId, { title: newTitle });
+       generateTitle(textToSend, language).then(async (newTitle) => {
+         // Optimistic
          setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
+         // API Call
+         await updateSession(currentSessionId, { title: newTitle });
        });
     }
 
@@ -181,21 +199,23 @@ const App: React.FC = () => {
       });
 
       // 5. Save Bot Message Final State
-      saveMessage(currentSessionId, Role.Model, fullResponse);
+      await saveMessage(currentSessionId, Role.Model, fullResponse);
       
+      // Refresh sessions list order (as backend updates 'updatedAt')
+      const updatedSessions = await getSessions();
+      setSessions(updatedSessions);
+
     } catch (error) {
       setMessages(prev => prev.map(m => 
         m.id === botMsgId ? { ...m, content: t.error, isError: true } : m
       ));
+      await saveMessage(currentSessionId, Role.Model, t.error, true);
     } finally {
       setIsGenerating(false);
-      setSessions(getSessions());
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Allow Enter to act as a normal newline
-    // Send only on Ctrl + Enter or Cmd + Enter
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSendMessage();

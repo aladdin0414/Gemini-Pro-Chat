@@ -1,24 +1,55 @@
 import { Session, Message, Role } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 
-// In a real Node.js app, these would be SQL queries.
-// We use LocalStorage here to make the demo functional without a running backend server.
+const API_BASE_URL = 'http://localhost:3001/api';
 
-const STORAGE_KEYS = {
-  SESSIONS: 'gemini_chat_sessions',
-  MESSAGES: 'gemini_chat_messages',
+// Helper for API calls with LocalStorage fallback
+async function apiRequest<T>(
+  operation: () => Promise<T>,
+  fallback: () => T | Promise<T>,
+  description: string
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    console.warn(`${description} failed (Backend likely offline). Falling back to local storage.`);
+    return fallback();
+  }
+}
+
+// --- Local Storage Implementation Helpers ---
+const ls = {
+  getSessions: (): Session[] => {
+    const data = localStorage.getItem('sessions');
+    return data ? JSON.parse(data) : [];
+  },
+  saveSessions: (sessions: Session[]) => {
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+  },
+  getMessages: (sessionId: string): Message[] => {
+    const data = localStorage.getItem(`messages_${sessionId}`);
+    return data ? JSON.parse(data) : [];
+  },
+  saveMessages: (sessionId: string, messages: Message[]) => {
+    localStorage.setItem(`messages_${sessionId}`, JSON.stringify(messages));
+  }
 };
 
 // --- Session Methods ---
 
-export const getSessions = (): Session[] => {
-  const stored = localStorage.getItem(STORAGE_KEYS.SESSIONS);
-  if (!stored) return [];
-  return JSON.parse(stored).sort((a: Session, b: Session) => b.updatedAt - a.updatedAt);
+export const getSessions = async (): Promise<Session[]> => {
+  return apiRequest(
+    async () => {
+      const response = await fetch(`${API_BASE_URL}/sessions`);
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
+    },
+    () => ls.getSessions(),
+    "Fetch sessions"
+  );
 };
 
-export const createSession = (title: string = "New Chat"): Session => {
-  const sessions = getSessions();
+export const createSession = async (title: string = "New Chat"): Promise<Session> => {
   const newSession: Session = {
     id: uuidv4(),
     title,
@@ -27,32 +58,59 @@ export const createSession = (title: string = "New Chat"): Session => {
     preview: "Start a new conversation",
   };
   
-  localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify([newSession, ...sessions]));
-  return newSession;
+  return apiRequest(
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSession),
+      });
+      if (!res.ok) throw new Error('Failed to create');
+      return newSession;
+    },
+    () => {
+      const sessions = ls.getSessions();
+      ls.saveSessions([newSession, ...sessions]);
+      return newSession;
+    },
+    "Create session"
+  );
 };
 
-export const updateSession = (id: string, updates: Partial<Session>) => {
-  const sessions = getSessions();
-  const index = sessions.findIndex(s => s.id === id);
-  if (index !== -1) {
-    sessions[index] = { ...sessions[index], ...updates, updatedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
-  }
+export const updateSession = async (id: string, updates: Partial<Session>) => {
+  return apiRequest(
+    async () => {
+      await fetch(`${API_BASE_URL}/sessions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+    },
+    () => {
+      const sessions = ls.getSessions();
+      const updated = sessions.map(s => s.id === id ? { ...s, ...updates } : s);
+      ls.saveSessions(updated);
+    },
+    "Update session"
+  );
 };
 
-export const deleteSession = (id: string) => {
-  const sessions = getSessions();
-  const filtered = sessions.filter(s => s.id !== id);
-  localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(filtered));
-
-  // Cascade delete messages
-  const allMessages = getAllMessagesRaw();
-  const filteredMessages = allMessages.filter(m => m.sessionId !== id);
-  localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(filteredMessages));
+export const deleteSession = async (id: string) => {
+  return apiRequest(
+    async () => {
+      await fetch(`${API_BASE_URL}/sessions/${id}`, { method: 'DELETE' });
+    },
+    () => {
+      const sessions = ls.getSessions();
+      ls.saveSessions(sessions.filter(s => s.id !== id));
+      localStorage.removeItem(`messages_${id}`);
+    },
+    "Delete session"
+  );
 };
 
-export const searchSessions = (query: string): Session[] => {
-  const sessions = getSessions();
+export const searchSessions = async (query: string): Promise<Session[]> => {
+  const sessions = await getSessions();
   if (!query) return sessions;
   const lowerQuery = query.toLowerCase();
   return sessions.filter(s => s.title.toLowerCase().includes(lowerQuery));
@@ -60,32 +118,60 @@ export const searchSessions = (query: string): Session[] => {
 
 // --- Message Methods ---
 
-const getAllMessagesRaw = (): Message[] => {
-  const stored = localStorage.getItem(STORAGE_KEYS.MESSAGES);
-  return stored ? JSON.parse(stored) : [];
+export const getMessagesBySession = async (sessionId: string): Promise<Message[]> => {
+  return apiRequest(
+    async () => {
+      const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/messages`);
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      return response.json();
+    },
+    () => ls.getMessages(sessionId),
+    "Fetch messages"
+  );
 };
 
-export const getMessagesBySession = (sessionId: string): Message[] => {
-  const all = getAllMessagesRaw();
-  return all.filter(m => m.sessionId === sessionId).sort((a, b) => a.timestamp - b.timestamp);
-};
-
-export const saveMessage = (sessionId: string, role: Role, content: string): Message => {
-  const all = getAllMessagesRaw();
+export const saveMessage = async (sessionId: string, role: Role, content: string, isError: boolean = false): Promise<Message> => {
   const newMessage: Message = {
     id: uuidv4(),
     sessionId,
     role,
     content,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    isError
   };
   
-  localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify([...all, newMessage]));
-
-  // Update session preview and timestamp
-  updateSession(sessionId, {
-    preview: content.substring(0, 60) + (content.length > 60 ? '...' : ''),
-  });
-
-  return newMessage;
+  return apiRequest(
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMessage),
+      });
+      if (!res.ok) throw new Error('Failed to save message');
+      return newMessage;
+    },
+    () => {
+      const messages = ls.getMessages(sessionId);
+      ls.saveMessages(sessionId, [...messages, newMessage]);
+      
+      // Update session preview locally too
+      const sessions = ls.getSessions();
+      const sessionIndex = sessions.findIndex(s => s.id === sessionId);
+      if (sessionIndex >= 0) {
+        const preview = content.substring(0, 60) + (content.length > 60 ? '...' : '');
+        // Update specific fields
+        sessions[sessionIndex] = { 
+          ...sessions[sessionIndex], 
+          updatedAt: Date.now(), 
+          preview 
+        };
+        // Move to top
+        const [updatedSession] = sessions.splice(sessionIndex, 1);
+        sessions.unshift(updatedSession);
+        ls.saveSessions(sessions);
+      }
+      return newMessage;
+    },
+    "Save message"
+  );
 };
