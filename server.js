@@ -8,11 +8,14 @@
  * 3. Dependencies installed: npm install express pg cors body-parser dotenv
  */
 
-const express = require('express');
-const { Pool } = require('pg');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-require('dotenv').config();
+import express from 'express';
+import pg from 'pg';
+const { Pool } = pg;
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
