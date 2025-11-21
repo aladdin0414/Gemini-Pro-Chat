@@ -9,13 +9,49 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // PostgreSQL Connection Pool
+// Ensure you have DATABASE_URL in your .env file
+// Example: DATABASE_URL=postgresql://user:password@localhost:5432/gemini_chat
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL, 
-  // e.g., postgres://user:password@localhost:5432/gemini_chat
 });
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// --- Database Initialization ---
+const initDb = async () => {
+  const createSessionsTable = `
+    CREATE TABLE IF NOT EXISTS sessions (
+      id UUID PRIMARY KEY,
+      title TEXT NOT NULL,
+      preview TEXT,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+  `;
+
+  const createMessagesTable = `
+    CREATE TABLE IF NOT EXISTS messages (
+      id UUID PRIMARY KEY,
+      session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+      role VARCHAR(50) NOT NULL,
+      content TEXT NOT NULL,
+      is_error BOOLEAN DEFAULT FALSE,
+      timestamp BIGINT NOT NULL
+    );
+  `;
+
+  try {
+    await pool.query(createSessionsTable);
+    await pool.query(createMessagesTable);
+    console.log("✅ Database tables ensured (sessions, messages).");
+  } catch (err) {
+    console.error("❌ Error initializing database tables:", err);
+  }
+};
+
+// Initialize DB on startup
+initDb();
 
 // --- Sessions API ---
 
@@ -142,5 +178,5 @@ app.post('/api/messages', async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Backend server running on port ${port}`);
 });
