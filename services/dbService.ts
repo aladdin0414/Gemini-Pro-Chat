@@ -1,3 +1,10 @@
+/**
+ * ⚠️ IMPORTANT: This is a CLIENT-SIDE file meant to run in the Browser.
+ * DO NOT run this file with 'node'. It interacts with the backend API and LocalStorage.
+ * 
+ * Correct Usage: Import this file in your React components (e.g., App.tsx).
+ */
+
 import { Session, Message, Role } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,7 +19,8 @@ async function apiRequest<T>(
   try {
     return await operation();
   } catch (error) {
-    console.warn(`${description} failed (Backend likely offline). Falling back to local storage.`);
+    // Silent fail for dev UX, but you can log it
+    // console.warn(`${description} failed (Backend likely offline). Falling back to local storage.`);
     return fallback();
   }
 }
@@ -20,17 +28,21 @@ async function apiRequest<T>(
 // --- Local Storage Implementation Helpers ---
 const ls = {
   getSessions: (): Session[] => {
+    if (typeof localStorage === 'undefined') return []; // Safety for SSR/Node checks
     const data = localStorage.getItem('sessions');
     return data ? JSON.parse(data) : [];
   },
   saveSessions: (sessions: Session[]) => {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem('sessions', JSON.stringify(sessions));
   },
   getMessages: (sessionId: string): Message[] => {
+    if (typeof localStorage === 'undefined') return [];
     const data = localStorage.getItem(`messages_${sessionId}`);
     return data ? JSON.parse(data) : [];
   },
   saveMessages: (sessionId: string, messages: Message[]) => {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem(`messages_${sessionId}`, JSON.stringify(messages));
   }
 };
@@ -103,7 +115,9 @@ export const deleteSession = async (id: string) => {
     () => {
       const sessions = ls.getSessions();
       ls.saveSessions(sessions.filter(s => s.id !== id));
-      localStorage.removeItem(`messages_${id}`);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`messages_${id}`);
+      }
     },
     "Delete session"
   );

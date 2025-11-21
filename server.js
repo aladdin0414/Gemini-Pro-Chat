@@ -1,3 +1,12 @@
+/**
+ * BACKEND SERVER
+ * Run this file with: node server.js
+ * 
+ * Prerequisites:
+ * 1. PostgreSQL database running
+ * 2. .env file with DATABASE_URL=postgresql://...
+ * 3. Dependencies installed: npm install express pg cors body-parser dotenv
+ */
 
 const express = require('express');
 const { Pool } = require('pg');
@@ -8,9 +17,14 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Check for required config
+if (!process.env.DATABASE_URL) {
+  console.warn("⚠️ WARNING: DATABASE_URL is not set in .env file.");
+  console.warn("   The server will start, but database operations will likely fail.");
+  console.warn("   Format: postgresql://user:password@localhost:5432/database_name");
+}
+
 // PostgreSQL Connection Pool
-// Ensure you have DATABASE_URL in your .env file
-// Example: DATABASE_URL=postgresql://user:password@localhost:5432/gemini_chat
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL, 
 });
@@ -47,11 +61,17 @@ const initDb = async () => {
     console.log("✅ Database tables ensured (sessions, messages).");
   } catch (err) {
     console.error("❌ Error initializing database tables:", err);
+    console.error("   Please check your DATABASE_URL and ensure PostgreSQL is running.");
   }
 };
 
 // Initialize DB on startup
 initDb();
+
+// Helper route to check status
+app.get('/', (req, res) => {
+  res.send('Gemini Chat Backend is running! 🚀<br>Frontend should be run separately (e.g., yarn dev).');
+});
 
 // --- Sessions API ---
 
