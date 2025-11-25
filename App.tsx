@@ -26,38 +26,38 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Unified Settings State
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  // Unified Settings State with Lazy Initialization
+  // This reads from localStorage BEFORE the first render, preventing default overrides
+  const [settings, setSettings] = useState<UserSettings>(() => {
+    try {
+      if (typeof localStorage === 'undefined') return DEFAULT_SETTINGS;
+      
+      const stored = localStorage.getItem('user_settings');
+      if (stored) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+      }
+      
+      // Migration logic for old keys (if any)
+      const legacyTheme = localStorage.getItem('theme_preference');
+      const legacyLang = localStorage.getItem('language_preference');
+      const browserLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
+
+      return {
+        ...DEFAULT_SETTINGS,
+        theme: (legacyTheme as any) || 'system',
+        language: (legacyLang as any) || browserLang
+      };
+    } catch (e) {
+      console.error("Failed to load settings", e);
+      return DEFAULT_SETTINGS;
+    }
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Translations helper
   const t = getTranslations(settings.language);
-
-  // Load Settings from LocalStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user_settings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed }); // Merge with defaults
-      } else {
-        // Migration or First Load
-        const legacyTheme = localStorage.getItem('theme_preference');
-        const legacyLang = localStorage.getItem('language_preference');
-        const browserLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
-
-        setSettings(prev => ({
-          ...prev,
-          theme: (legacyTheme as any) || 'system',
-          language: (legacyLang as any) || browserLang
-        }));
-      }
-    } catch (e) {
-      console.error("Failed to load settings", e);
-    }
-  }, []);
 
   // Save Settings to LocalStorage whenever they change
   useEffect(() => {
