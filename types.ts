@@ -5,6 +5,16 @@ export enum Role {
 
 export type Theme = 'light' | 'dark' | 'system';
 export type Language = 'en' | 'zh';
+export type SendKey = 'Enter' | 'Ctrl+Enter';
+export type FontSize = 'small' | 'medium' | 'large';
+
+export interface UserSettings {
+  theme: Theme;
+  language: Language;
+  sendKey: SendKey;
+  fontSize: FontSize;
+  systemInstruction: string;
+}
 
 export interface Message {
   id: string;

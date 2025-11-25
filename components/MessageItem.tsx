@@ -1,19 +1,21 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Message, Role } from '../types';
+import { Message, Role, FontSize } from '../types';
 import { Translation } from '../utils/translations';
 import { User, Bot, Copy, Check } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
   t: Translation;
+  fontSize: FontSize;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize }) => {
   const isUser = message.role === Role.User;
   const [copied, setCopied] = React.useState(false);
 
@@ -23,11 +25,17 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Font size classes
+  const textSizeClass = 
+    fontSize === 'small' ? 'prose-sm' : 
+    fontSize === 'large' ? 'prose-lg' : 
+    'prose-base';
+
   return (
     <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
       
       {/* Inner Container */}
-      <div className={`flex max-w-[95%] md:max-w-[85%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex max-w-[95%] md:max-w-[90%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         
         {/* Avatar */}
         <div className="shrink-0 flex flex-col items-center">
@@ -49,7 +57,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
           
           {/* Markdown Content */}
           <div className={`
-            prose prose-sm max-w-none leading-7 break-words
+            prose max-w-none leading-relaxed break-words ${textSizeClass}
             ${isUser 
               ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-blue-100 prose-code:text-white prose-code:bg-blue-700/50 prose-li:text-white prose-li:marker:text-blue-200 prose-blockquote:border-blue-300 prose-blockquote:text-blue-100' 
               : 'text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-code:text-gray-800 dark:prose-code:text-gray-200 prose-li:text-gray-800 dark:prose-li:text-gray-200 prose-li:marker:text-gray-500 dark:prose-li:marker:text-gray-400 prose-blockquote:border-gray-300 dark:prose-blockquote:border-gray-600 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400'}
@@ -57,7 +65,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
             prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5
           `}>
              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
                   // Links: Open in new tab
                   a: ({node, ...props}) => (

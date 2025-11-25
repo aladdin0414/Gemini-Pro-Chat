@@ -62,7 +62,8 @@ const mapMessagesToHistory = (messages: Message[]): Content[] => {
 export const streamChatResponse = async (
   currentHistory: Message[],
   newMessage: string,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  systemInstruction?: string
 ): Promise<string> => {
   try {
     const ai = getAiClient();
@@ -74,7 +75,8 @@ export const streamChatResponse = async (
       history: history,
       config: {
         temperature: 0.7,
-        maxOutputTokens: 8192, 
+        maxOutputTokens: 8192,
+        systemInstruction: systemInstruction || undefined,
       }
     });
 

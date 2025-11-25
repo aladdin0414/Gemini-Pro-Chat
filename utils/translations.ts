@@ -22,7 +22,20 @@ export const translations = {
     disclaimer: "Gemini can make mistakes. Consider checking important information.",
     user: "User",
     close: "Close",
-    version: "Gemini Pro Chat v1.2.0",
+    version: "Gemini Pro Chat v1.3.0",
+    // New Settings
+    general: "General",
+    chatSettings: "Chat Preferences",
+    sendKey: "Send Key",
+    fontSize: "Font Size",
+    small: "Small",
+    medium: "Medium",
+    large: "Large",
+    systemInstruction: "System Instruction",
+    systemInstructionPlaceholder: "e.g., You are a helpful coding assistant who prefers Python...",
+    enterToSend: "Enter to send",
+    ctrlEnterToSend: "Ctrl + Enter to send",
+    save: "Save",
   },
   zh: {
     newChat: "新对话",
@@ -45,7 +58,20 @@ export const translations = {
     disclaimer: "Gemini 可能会犯错。请核实重要信息。",
     user: "用户",
     close: "关闭",
-    version: "Gemini Pro Chat v1.2.0",
+    version: "Gemini Pro Chat v1.3.0",
+    // New Settings
+    general: "通用",
+    chatSettings: "聊天偏好",
+    sendKey: "发送快捷键",
+    fontSize: "字体大小",
+    small: "小",
+    medium: "中",
+    large: "大",
+    systemInstruction: "系统预设指令 (System Prompt)",
+    systemInstructionPlaceholder: "例如：你是一个精通 Python 的助手，请用中文回答...",
+    enterToSend: "Enter 发送",
+    ctrlEnterToSend: "Ctrl + Enter 发送",
+    save: "保存",
   }
 };
 

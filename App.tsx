@@ -1,13 +1,21 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import MessageItem from './components/MessageItem';
+import SettingsModal from './components/SettingsModal';
 import { getSessions, createSession, getMessagesBySession, saveMessage, deleteSession, updateSession } from './services/dbService';
 import { streamChatResponse, generateTitle } from './services/geminiService';
-import { Session, Message, Role, Theme, Language } from './types';
+import { Session, Message, Role, UserSettings } from './types';
 import { getTranslations } from './utils/translations';
 import { Send, Menu, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+
+const DEFAULT_SETTINGS: UserSettings = {
+  theme: 'system',
+  language: 'en',
+  sendKey: 'Enter',
+  fontSize: 'medium',
+  systemInstruction: ''
+};
 
 const App: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -16,54 +24,62 @@ const App: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Theme & Language State
-  const [theme, setTheme] = useState<Theme>('system');
-  const [language, setLanguage] = useState<Language>('en');
+  // Unified Settings State
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Translations
-  const t = getTranslations(language);
+  // Translations helper
+  const t = getTranslations(settings.language);
 
-  // Load Settings (Theme & Language)
+  // Load Settings from LocalStorage
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme_preference') as Theme;
-    if (savedTheme) setTheme(savedTheme);
+    try {
+      const stored = localStorage.getItem('user_settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setSettings({ ...DEFAULT_SETTINGS, ...parsed }); // Merge with defaults
+      } else {
+        // Migration or First Load
+        const legacyTheme = localStorage.getItem('theme_preference');
+        const legacyLang = localStorage.getItem('language_preference');
+        const browserLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
 
-    const savedLang = localStorage.getItem('language_preference') as Language;
-    if (savedLang) {
-      setLanguage(savedLang);
-    } else {
-      // Simple browser language detection
-      const browserLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
-      setLanguage(browserLang);
+        setSettings(prev => ({
+          ...prev,
+          theme: (legacyTheme as any) || 'system',
+          language: (legacyLang as any) || browserLang
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load settings", e);
     }
   }, []);
+
+  // Save Settings to LocalStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+  }, [settings]);
 
   // Apply Theme
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
-    if (theme === 'system') {
+    if (settings.theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
     } else {
-      root.classList.add(theme);
+      root.classList.add(settings.theme);
     }
-    localStorage.setItem('theme_preference', theme);
-  }, [theme]);
+  }, [settings.theme]);
 
-  // Persist Language
+  // Listen for system theme changes
   useEffect(() => {
-    localStorage.setItem('language_preference', language);
-  }, [language]);
-
-  // Listen for system theme changes if in system mode
-  useEffect(() => {
-    if (theme !== 'system') return;
+    if (settings.theme !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
@@ -74,7 +90,7 @@ const App: React.FC = () => {
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
+  }, [settings.theme]);
 
 
   // Initial Data Load
@@ -117,6 +133,10 @@ const App: React.FC = () => {
     }
   }, [inputValue]);
 
+  const handleUpdateSettings = (newSettings: Partial<UserSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
+  };
+
   const handleCreateSession = async () => {
     const newSession = await createSession(); 
     setSessions(prev => [newSession, ...prev]);
@@ -125,7 +145,6 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSession = async (id: string) => {
-    // Optimistic update
     const prevSessions = [...sessions];
     setSessions(prev => prev.filter(s => s.id !== id));
     
@@ -148,7 +167,7 @@ const App: React.FC = () => {
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    // 1. Save User Message (Optimistic UI)
+    // 1. Save User Message
     const userMsgId = uuidv4();
     const userMsg: Message = {
       id: userMsgId,
@@ -159,12 +178,11 @@ const App: React.FC = () => {
     };
     setMessages(prev => [...prev, userMsg]);
     
-    // Background Save
     saveMessage(currentSessionId, Role.User, textToSend).catch(err => console.error(err));
 
     setIsGenerating(true);
 
-    // 2. Optimistic UI for Bot Message
+    // 2. Optimistic Bot Message
     const botMsgId = uuidv4();
     const initialBotMsg: Message = {
       id: botMsgId,
@@ -175,33 +193,34 @@ const App: React.FC = () => {
     };
     setMessages(prev => [...prev, initialBotMsg]);
 
-    // 3. Generate Title if it's the first message
+    // 3. Generate Title
     const currentSession = sessions.find(s => s.id === currentSessionId);
     if (currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话') && messages.length === 0) {
-       generateTitle(textToSend, language).then(async (newTitle) => {
-         // Optimistic
+       generateTitle(textToSend, settings.language).then(async (newTitle) => {
          setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
-         // API Call
          await updateSession(currentSessionId, { title: newTitle });
        });
     }
 
     try {
-      // 4. Call Gemini
+      // 4. Call Gemini (Pass system instruction from settings)
       const historyContext = messages; 
 
       let fullResponse = "";
-      await streamChatResponse(historyContext, textToSend, (chunkText) => {
-        fullResponse = chunkText;
-        setMessages(prev => prev.map(m => 
-          m.id === botMsgId ? { ...m, content: fullResponse } : m
-        ));
-      });
+      await streamChatResponse(
+        historyContext, 
+        textToSend, 
+        (chunkText) => {
+          fullResponse = chunkText;
+          setMessages(prev => prev.map(m => 
+            m.id === botMsgId ? { ...m, content: fullResponse } : m
+          ));
+        },
+        settings.systemInstruction
+      );
 
-      // 5. Save Bot Message Final State
       await saveMessage(currentSessionId, Role.Model, fullResponse);
       
-      // Refresh sessions list order (as backend updates 'updatedAt')
       const updatedSessions = await getSessions();
       setSessions(updatedSessions);
 
@@ -216,9 +235,21 @@ const App: React.FC = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSendMessage();
+    // Logic: 
+    // If SendKey is 'Enter' -> Pressing Enter sends (unless Shift+Enter)
+    // If SendKey is 'Ctrl+Enter' -> Pressing Ctrl+Enter sends (Enter makes new line)
+    
+    if (settings.sendKey === 'Enter') {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    } else {
+      // Ctrl+Enter mode
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSendMessage();
+      }
     }
   };
 
@@ -232,12 +263,18 @@ const App: React.FC = () => {
         onSelectSession={setCurrentSessionId}
         onCreateSession={handleCreateSession}
         onDeleteSession={handleDeleteSession}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
-        theme={theme}
-        setTheme={setTheme}
-        language={language}
-        setLanguage={setLanguage}
+        t={t}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
         t={t}
       />
 
@@ -252,7 +289,7 @@ const App: React.FC = () => {
           <span className="font-semibold">Gemini Chat</span>
         </div>
 
-        {/* Messages List - CENTERED CONTAINER */}
+        {/* Messages List */}
         <div className="flex-1 overflow-y-auto scroll-smooth p-4">
           <div className="max-w-5xl mx-auto flex flex-col pb-32 pt-2">
             {messages.length === 0 ? (
@@ -267,7 +304,12 @@ const App: React.FC = () => {
               </div>
             ) : (
               messages.map((msg) => (
-                <MessageItem key={msg.id} message={msg} t={t} />
+                <MessageItem 
+                  key={msg.id} 
+                  message={msg} 
+                  t={t} 
+                  fontSize={settings.fontSize}
+                />
               ))
             )}
             <div ref={messagesEndRef} />
@@ -309,7 +351,10 @@ const App: React.FC = () => {
                 {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
               </button>
             </div>
-            <div className="text-center mt-2">
+            <div className="text-center mt-2 flex flex-col items-center">
+              <span className="text-xs text-gray-400 dark:text-gray-600 mb-1">
+                {settings.sendKey === 'Ctrl+Enter' ? t.ctrlEnterToSend : t.enterToSend}
+              </span>
               <span className="text-xs text-gray-500 dark:text-gray-500">{t.disclaimer}</span>
             </div>
           </div>
