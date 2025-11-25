@@ -8,7 +8,8 @@
 import { Session, Message, Role } from "../types";
 import { v4 as uuidv4 } from 'uuid';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+// Use environment variable for production deployment, fallback to localhost for dev
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 // Helper for API calls with LocalStorage fallback
 async function apiRequest<T>(
@@ -124,10 +125,31 @@ export const deleteSession = async (id: string) => {
 };
 
 export const searchSessions = async (query: string): Promise<Session[]> => {
-  const sessions = await getSessions();
-  if (!query) return sessions;
-  const lowerQuery = query.toLowerCase();
-  return sessions.filter(s => s.title.toLowerCase().includes(lowerQuery));
+  // If query is empty, just get regular list
+  if (!query || !query.trim()) return getSessions();
+
+  return apiRequest(
+    async () => {
+      const response = await fetch(`${API_BASE_URL}/sessions/search?q=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Search failed');
+      return response.json();
+    },
+    async () => {
+      // Local fallback: Search Titles AND Message Content
+      const sessions = ls.getSessions();
+      const lowerQuery = query.toLowerCase();
+      
+      return sessions.filter(s => {
+        // 1. Check Title
+        if (s.title.toLowerCase().includes(lowerQuery)) return true;
+
+        // 2. Check Messages Content (Performant enough for local storage sizes)
+        const messages = ls.getMessages(s.id);
+        return messages.some(m => m.content.toLowerCase().includes(lowerQuery));
+      });
+    },
+    "Search sessions"
+  );
 };
 
 // --- Message Methods ---

@@ -78,6 +78,38 @@ app.get('/', (req, res) => {
 
 // --- Sessions API ---
 
+// Search sessions (Title OR Content)
+app.get('/api/sessions/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+
+  try {
+    // Search for sessions where the title matches OR where any message content matches
+    // ILIKE is case-insensitive in PostgreSQL
+    const query = `
+      SELECT DISTINCT s.id, s.title, s.preview, s.created_at, s.updated_at
+      FROM sessions s
+      LEFT JOIN messages m ON s.id = m.session_id
+      WHERE s.title ILIKE $1 OR m.content ILIKE $1
+      ORDER BY s.updated_at DESC
+    `;
+    const searchPattern = `%${q}%`;
+    const result = await pool.query(query, [searchPattern]);
+
+    const sessions = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      preview: row.preview || '',
+      createdAt: parseInt(row.created_at),
+      updatedAt: parseInt(row.updated_at)
+    }));
+    res.json(sessions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database search error' });
+  }
+});
+
 // Get all sessions
 app.get('/api/sessions', async (req, res) => {
   try {

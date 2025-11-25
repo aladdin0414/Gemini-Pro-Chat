@@ -1,21 +1,21 @@
 import { GoogleGenAI, Content } from "@google/genai";
 import { Message, Role, Language } from "../types";
 
-// Lazy initialization to prevent crash on load if key is missing or env vars aren't ready
+// Lazy initialization to prevent crash on load if key is missing
 let aiInstance: GoogleGenAI | null = null;
 
 const getAiClient = () => {
   if (aiInstance) return aiInstance;
 
-  // Attempt to get the key from process.env (Standard) or import.meta.env (Vite)
-  // Note: In Vite, you usually must prefix variables with VITE_ (e.g., VITE_API_KEY) in your .env file.
-  const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY || (import.meta as any).env?.API_KEY;
+  // STRICT ADHERENCE to Guidelines:
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+  const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    throw new Error("API Key is missing. Please set VITE_API_KEY in your .env file.");
+    throw new Error("API Key is missing. Ensure process.env.API_KEY is set.");
   }
 
-  aiInstance = new GoogleGenAI({ apiKey });
+  aiInstance = new GoogleGenAI({ apiKey: apiKey });
   return aiInstance;
 };
 
@@ -39,8 +39,6 @@ export const streamChatResponse = async (
   try {
     const ai = getAiClient();
     
-    // Create a chat session with the history (excluding the new message we are about to send if it was optimistically added, 
-    // but typically we pass the history *before* the new prompt)
     const history = mapMessagesToHistory(currentHistory);
 
     const chat = ai.chats.create({
@@ -48,7 +46,7 @@ export const streamChatResponse = async (
       history: history,
       config: {
         temperature: 0.7,
-        maxOutputTokens: 8192, // Reasonable limit for chat
+        maxOutputTokens: 8192, 
       }
     });
 
@@ -85,7 +83,6 @@ export const generateTitle = async (firstMessage: string, language: Language = '
     });
     return response.text?.trim() || (language === 'zh' ? "新对话" : "New Chat");
   } catch (e) {
-    // If API fails (e.g. no key), just return default
     return language === 'zh' ? "新对话" : "New Chat";
   }
 };
