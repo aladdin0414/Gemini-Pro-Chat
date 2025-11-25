@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message, Role } from '../types';
@@ -54,7 +55,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
             prose-pre:bg-gray-900 dark:prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-700 dark:prose-pre:border-gray-800
           ">
              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
+                  // Custom Link Renderer to open in new tab
+                  a: ({node, ...props}) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" />
+                  ),
                   code({node, className, children, ...props}) {
                     const match = /language-(\w+)/.exec(className || '')
                     const codeText = String(children).replace(/\n$/, '');
