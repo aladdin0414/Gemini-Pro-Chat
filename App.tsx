@@ -254,7 +254,7 @@ const App: React.FC = () => {
 
         {/* Messages List - CENTERED CONTAINER */}
         <div className="flex-1 overflow-y-auto scroll-smooth p-4">
-          <div className="max-w-3xl mx-auto flex flex-col pb-32 pt-2">
+          <div className="max-w-5xl mx-auto flex flex-col pb-32 pt-2">
             {messages.length === 0 ? (
               <div className="h-[60vh] flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                 <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-6">
@@ -279,7 +279,7 @@ const App: React.FC = () => {
           bg-gradient-to-t from-white via-white to-transparent
           dark:from-gray-900 dark:via-gray-900 dark:to-transparent 
           pb-6 pt-10 px-4">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <div className="relative flex items-end gap-2 
               bg-white dark:bg-gray-800 shadow-xl 
               border border-gray-200 dark:border-gray-700 

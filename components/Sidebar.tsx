@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Session, Theme, Language } from '../types';
 import { Translation } from '../utils/translations';
 import { searchSessions } from '../services/dbService';
-import { MessageSquarePlus, Search, MessageSquare, Trash2, Settings, Moon, Sun, Monitor, Loader2 } from 'lucide-react';
+import { MessageSquarePlus, Search, Trash2, Settings, Moon, Sun, Monitor, Loader2 } from 'lucide-react';
 
 interface SidebarProps {
   sessions: Session[];
@@ -133,7 +133,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}
                 `}
               >
-                <MessageSquare size={18} className={activeSessionId === session.id ? "text-blue-600 dark:text-blue-400" : "text-gray-400"} />
                 <div className="flex-1 overflow-hidden">
                    <div className="truncate font-medium text-sm">{session.title}</div>
                    <div className="truncate text-xs text-gray-500 dark:text-gray-500 opacity-80">{session.preview || t.newChat}</div>
