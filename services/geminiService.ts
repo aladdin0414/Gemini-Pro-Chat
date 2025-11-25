@@ -1,20 +1,48 @@
 import { GoogleGenAI, Content } from "@google/genai";
 import { Message, Role, Language } from "../types";
 
-// Lazy initialization to prevent crash on load if key is missing
+// Lazy initialization
 let aiInstance: GoogleGenAI | null = null;
 
 const getAiClient = () => {
   if (aiInstance) return aiInstance;
 
-  // STRICT ADHERENCE to Guidelines:
-  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-  const apiKey = process.env.API_KEY;
+  let apiKey = '';
 
-  if (!apiKey) {
-    throw new Error("API Key is missing. Ensure process.env.API_KEY is set.");
+  // 1. Check process.env (Node.js, Webpack, Parcel, Create React App)
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      apiKey = process.env.API_KEY || 
+               process.env.REACT_APP_API_KEY || 
+               process.env.NEXT_PUBLIC_API_KEY || 
+               '';
+    }
+  } catch (e) {
+    // Ignore ReferenceError
   }
 
+  // 2. Check import.meta.env (Vite standard)
+  if (!apiKey && (import.meta as any).env) {
+    const env = (import.meta as any).env;
+    apiKey = env.VITE_API_KEY || env.API_KEY || '';
+  }
+
+  // 3. Final Fallback: Check global window object (if injected via script)
+  if (!apiKey && (window as any).API_KEY) {
+    apiKey = (window as any).API_KEY;
+  }
+
+  if (!apiKey) {
+    // We throw a descriptive error so the UI can catch it
+    throw new Error(
+      "API Key is missing. Please check your .env file.\n" +
+      "1. If using Vite, rename 'API_KEY' to 'VITE_API_KEY'.\n" +
+      "2. If using Create React App, rename to 'REACT_APP_API_KEY'.\n" +
+      "3. Restart your dev server after changing .env."
+    );
+  }
+
+  // Initialize the client
   aiInstance = new GoogleGenAI({ apiKey: apiKey });
   return aiInstance;
 };
@@ -63,9 +91,13 @@ export const streamChatResponse = async (
     }
 
     return fullText;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error calling Gemini API:", error);
-    throw error;
+    // If the error is about the API key, throw a user-friendly message
+    if (error.message && (error.message.includes('API Key') || error.message.includes('API_KEY'))) {
+      throw error; 
+    }
+    throw new Error("Failed to communicate with Gemini API. Please check your connection or API key.");
   }
 };
 
@@ -83,6 +115,7 @@ export const generateTitle = async (firstMessage: string, language: Language = '
     });
     return response.text?.trim() || (language === 'zh' ? "新对话" : "New Chat");
   } catch (e) {
+    // Fail silently for titles, just use default
     return language === 'zh' ? "新对话" : "New Chat";
   }
 };

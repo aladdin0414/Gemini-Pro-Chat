@@ -26,7 +26,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
   return (
     <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
       
-      {/* Inner Container: Reverses direction for user to put avatar on right */}
+      {/* Inner Container */}
       <div className={`flex max-w-[95%] md:max-w-[85%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         
         {/* Avatar */}
@@ -49,18 +49,43 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
           
           {/* Markdown Content */}
           <div className={`
-            prose prose-sm max-w-none leading-7
+            prose prose-sm max-w-none leading-7 break-words
             ${isUser 
-              ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-blue-100 prose-code:text-white prose-code:bg-blue-700/50' 
-              : 'text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-code:text-gray-800 dark:prose-code:text-gray-200'}
+              ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-blue-100 prose-code:text-white prose-code:bg-blue-700/50 prose-li:text-white prose-li:marker:text-blue-200 prose-blockquote:border-blue-300 prose-blockquote:text-blue-100' 
+              : 'text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-code:text-gray-800 dark:prose-code:text-gray-200 prose-li:text-gray-800 dark:prose-li:text-gray-200 prose-li:marker:text-gray-500 dark:prose-li:marker:text-gray-400 prose-blockquote:border-gray-300 dark:prose-blockquote:border-gray-600 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400'}
             prose-pre:bg-gray-900 dark:prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-700 dark:prose-pre:border-gray-800
+            prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5
           `}>
              <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
+                  // Links: Open in new tab
                   a: ({node, ...props}) => (
                     <a {...props} target="_blank" rel="noopener noreferrer" className={`hover:underline cursor-pointer ${isUser ? 'text-white underline decoration-blue-300' : ''}`} />
                   ),
+                  // Lists: Ensure bullets are visible
+                  ul: ({node, ...props}) => (
+                    <ul className="list-disc list-outside ml-4" {...props} />
+                  ),
+                  ol: ({node, ...props}) => (
+                    <ol className="list-decimal list-outside ml-4" {...props} />
+                  ),
+                  // Tables: Custom styling for borders and backgrounds
+                  table: ({node, ...props}) => (
+                    <div className="overflow-x-auto my-4 rounded-md border border-gray-200 dark:border-gray-700">
+                      <table className="w-full text-left text-sm border-collapse" {...props} />
+                    </div>
+                  ),
+                  thead: ({node, ...props}) => (
+                    <thead className={isUser ? "bg-blue-700" : "bg-gray-100 dark:bg-gray-900/50"} {...props} />
+                  ),
+                  th: ({node, ...props}) => (
+                    <th className={`p-2 border-b font-semibold whitespace-nowrap ${isUser ? 'border-blue-500 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}`} {...props} />
+                  ),
+                  td: ({node, ...props}) => (
+                    <td className={`p-2 border-b last:border-0 ${isUser ? 'border-blue-500/30 text-white' : 'border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300'}`} {...props} />
+                  ),
+                  // Code Blocks
                   code({node, className, children, ...props}) {
                     const match = /language-(\w+)/.exec(className || '')
                     const codeText = String(children).replace(/\n$/, '');
@@ -101,7 +126,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
                         </div>
                       </div>
                     ) : (
-                      <code className={`px-1 py-0.5 rounded font-medium ${isUser ? 'bg-blue-500/30 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-orange-300'}`} {...props}>
+                      <code className={`px-1 py-0.5 rounded font-medium text-[0.9em] ${isUser ? 'bg-blue-500/30 text-white border border-blue-400/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-orange-300'}`} {...props}>
                         {children}
                       </code>
                     )
