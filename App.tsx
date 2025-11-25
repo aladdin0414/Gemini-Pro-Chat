@@ -242,36 +242,36 @@ const App: React.FC = () => {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-col h-full relative bg-white dark:bg-gray-900">
         
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="md:hidden flex items-center p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
           <button onClick={() => setIsSidebarOpen(true)} className="mr-4 text-gray-600 dark:text-gray-300">
             <Menu />
           </button>
           <span className="font-semibold">Gemini Chat</span>
         </div>
 
-        {/* Messages List */}
-        <div className="flex-1 overflow-y-auto scroll-smooth">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400">
-              <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-6">
-                <Send size={32} className="text-blue-500 ml-1" />
+        {/* Messages List - CENTERED CONTAINER */}
+        <div className="flex-1 overflow-y-auto scroll-smooth p-4">
+          <div className="max-w-3xl mx-auto flex flex-col pb-32 pt-2">
+            {messages.length === 0 ? (
+              <div className="h-[60vh] flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-6">
+                  <Send size={32} className="text-blue-500 ml-1" />
+                </div>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-200 mb-2">{t.welcomeTitle}</h2>
+                <p className="text-center max-w-md">
+                  {t.welcomeSubtitle}
+                </p>
               </div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-200 mb-2">{t.welcomeTitle}</h2>
-              <p className="text-center max-w-md">
-                {t.welcomeSubtitle}
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col pb-32 pt-4">
-              {messages.map((msg) => (
+            ) : (
+              messages.map((msg) => (
                 <MessageItem key={msg.id} message={msg} t={t} />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}
@@ -281,10 +281,9 @@ const App: React.FC = () => {
           pb-6 pt-10 px-4">
           <div className="max-w-3xl mx-auto">
             <div className="relative flex items-end gap-2 
-              bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm 
+              bg-white dark:bg-gray-800 shadow-xl 
               border border-gray-200 dark:border-gray-700 
-              rounded-xl shadow-xl px-4 py-3 
-              ring-1 ring-black/5 dark:ring-white/5 
+              rounded-xl px-4 py-3 
               transition-all">
                <textarea
                 ref={textareaRef}

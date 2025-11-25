@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,51 +24,50 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
   };
 
   return (
-    <div className={`
-      group w-full border-b border-black/5 dark:border-white/5
-      ${isUser ? 'bg-white dark:bg-transparent' : 'bg-gray-50 dark:bg-gray-800/30'}
-    `}>
-      <div className="max-w-3xl mx-auto p-4 md:p-6 flex gap-4 md:gap-6">
+    <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      
+      {/* Inner Container: Reverses direction for user to put avatar on right */}
+      <div className={`flex max-w-[95%] md:max-w-[85%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         
         {/* Avatar */}
-        <div className="shrink-0 flex flex-col relative items-end">
+        <div className="shrink-0 flex flex-col items-center">
           <div className={`
-            w-8 h-8 rounded-sm flex items-center justify-center text-white
-            ${isUser ? 'bg-gray-500 dark:bg-gray-600' : 'bg-green-600 dark:bg-green-700'}
+            w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm
+            ${isUser ? 'bg-blue-600' : 'bg-green-600 dark:bg-green-700'}
           `}>
-             {isUser ? <User size={18} /> : <Bot size={18} />}
+             {isUser ? <User size={16} /> : <Bot size={16} />}
           </div>
         </div>
 
-        {/* Content */}
-        <div className="relative flex-1 overflow-hidden">
-          <div className="font-bold text-sm mb-1 opacity-90 text-gray-900 dark:text-gray-100">
-            {isUser ? t.you : 'Gemini'}
-          </div>
+        {/* Content Bubble */}
+        <div className={`
+            relative overflow-hidden p-3.5 md:p-4 shadow-sm
+            ${isUser 
+              ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm' 
+              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-sm border border-gray-100 dark:border-gray-700/50'}
+        `}>
           
-          {/* Message Body - Markdown Rendering */}
-          <div className="prose prose-sm max-w-none leading-7 
-            text-gray-800 dark:text-gray-200 
-            prose-headings:text-gray-900 dark:prose-headings:text-gray-100
-            prose-strong:text-gray-900 dark:prose-strong:text-gray-100
-            prose-a:text-blue-600 dark:prose-a:text-blue-400
-            prose-code:text-gray-800 dark:prose-code:text-gray-200
+          {/* Markdown Content */}
+          <div className={`
+            prose prose-sm max-w-none leading-7
+            ${isUser 
+              ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-blue-100 prose-code:text-white prose-code:bg-blue-700/50' 
+              : 'text-gray-800 dark:text-gray-200 prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-code:text-gray-800 dark:prose-code:text-gray-200'}
             prose-pre:bg-gray-900 dark:prose-pre:bg-gray-950 prose-pre:border prose-pre:border-gray-700 dark:prose-pre:border-gray-800
-          ">
+          `}>
              <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // Custom Link Renderer to open in new tab
                   a: ({node, ...props}) => (
-                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" />
+                    <a {...props} target="_blank" rel="noopener noreferrer" className={`hover:underline cursor-pointer ${isUser ? 'text-white underline decoration-blue-300' : ''}`} />
                   ),
                   code({node, className, children, ...props}) {
                     const match = /language-(\w+)/.exec(className || '')
                     const codeText = String(children).replace(/\n$/, '');
                     
                     return match ? (
-                      <div className="rounded-md bg-gray-900 dark:bg-gray-950 border border-gray-700 dark:border-gray-800 my-4 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700 dark:border-gray-800">
+                      <div className="rounded-md bg-gray-900 dark:bg-gray-950 border border-gray-700 dark:border-gray-800 my-4 overflow-hidden shadow-sm text-left">
+                        <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800/50 dark:bg-gray-900/50 border-b border-gray-700 dark:border-gray-800">
                           <span className="text-xs text-gray-400 font-medium">{match[1]}</span>
                           <button 
                             onClick={() => {
@@ -101,7 +101,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
                         </div>
                       </div>
                     ) : (
-                      <code className="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5 text-gray-800 dark:text-orange-300 font-medium" {...props}>
+                      <code className={`px-1 py-0.5 rounded font-medium ${isUser ? 'bg-blue-500/30 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-orange-300'}`} {...props}>
                         {children}
                       </code>
                     )
@@ -110,23 +110,24 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t }) => {
              >
                {message.content}
              </ReactMarkdown>
+             
              {message.isError && (
-               <div className="mt-2 text-red-600 dark:text-red-400 text-sm p-2 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 rounded">
+               <div className={`mt-2 text-sm p-2 rounded border ${isUser ? 'bg-red-500/20 border-red-400 text-white' : 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20'}`}>
                  {t.error}
                </div>
              )}
           </div>
 
-          {/* Message Copy Action */}
+          {/* Footer Actions (Copy button for AI) */}
           {!isUser && (
-            <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
               <button 
                 onClick={() => handleCopy(message.content)}
-                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300 transition-colors flex items-center gap-1"
+                className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex items-center gap-1"
                 title={t.copy}
               >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied && <span className="text-xs">{t.copied}</span>}
+                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                <span className="text-xs">{copied ? t.copied : t.copy}</span>
               </button>
             </div>
           )}
