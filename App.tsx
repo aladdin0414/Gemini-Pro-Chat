@@ -333,16 +333,22 @@ const App: React.FC = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={t.inputPlaceholder}
-                className="w-full max-h-[200px] bg-transparent border-0 focus:ring-0 focus:outline-none
+                className="flex-1 w-full min-w-0 bg-transparent border-0 focus:ring-0 focus:outline-none
                   text-gray-900 dark:text-gray-100 
                   placeholder-gray-500 dark:placeholder-gray-400 
                   resize-none py-2 scrollbar-hide"
                 rows={1}
               />
+              
+              {/* Send Hint */}
+              <div className="hidden md:flex pb-2.5 text-[10px] text-gray-400 dark:text-gray-500 select-none pointer-events-none whitespace-nowrap mr-1">
+                {settings.sendKey === 'Ctrl+Enter' ? t.ctrlEnterToSend : t.enterToSend}
+              </div>
+
               <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isGenerating}
-                className={`p-2 rounded-lg mb-0.5 transition-all ${
+                className={`p-2 rounded-lg mb-0.5 transition-all shrink-0 ${
                   inputValue.trim() && !isGenerating
                     ? 'bg-blue-600 text-white hover:bg-blue-500' 
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
@@ -350,12 +356,6 @@ const App: React.FC = () => {
               >
                 {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
               </button>
-            </div>
-            <div className="text-center mt-2 flex flex-col items-center">
-              <span className="text-xs text-gray-400 dark:text-gray-600 mb-1">
-                {settings.sendKey === 'Ctrl+Enter' ? t.ctrlEnterToSend : t.enterToSend}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-500">{t.disclaimer}</span>
             </div>
           </div>
         </div>

@@ -163,7 +163,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <span>{t.settings}</span>
             </button>
           </div>
-          <div className="text-xs text-gray-400 text-center mt-2">{t.version}</div>
         </div>
 
       </div>
