@@ -7,15 +7,16 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message, Role, FontSize } from '../types';
 import { Translation } from '../utils/translations';
-import { User, Bot, Copy, Check } from 'lucide-react';
+import { User, Bot, Copy, Check, RotateCcw } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
   t: Translation;
   fontSize: FontSize;
+  onRetry?: (id: string) => void;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, onRetry }) => {
   const isUser = message.role === Role.User;
   const [copied, setCopied] = React.useState(false);
 
@@ -146,14 +147,25 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize }) => {
              </ReactMarkdown>
              
              {message.isError && (
-               <div className={`mt-2 text-sm p-2 rounded border ${isUser ? 'bg-red-500/20 border-red-400 text-white' : 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20'}`}>
-                 {t.error}
+               <div className="mt-3 flex items-center gap-3">
+                 <div className={`text-sm p-2 rounded border flex-1 ${isUser ? 'bg-red-500/20 border-red-400 text-white' : 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20'}`}>
+                   {t.error}
+                 </div>
+                 {onRetry && (
+                   <button 
+                     onClick={() => onRetry(message.id)}
+                     className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                     title="Retry"
+                   >
+                     <RotateCcw size={16} />
+                   </button>
+                 )}
                </div>
              )}
           </div>
 
           {/* Footer Actions (Copy button for AI) */}
-          {!isUser && (
+          {!isUser && !message.isError && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
               <button 
                 onClick={() => handleCopy(message.content)}
