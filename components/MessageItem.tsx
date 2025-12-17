@@ -13,10 +13,12 @@ interface MessageItemProps {
   message: Message;
   t: Translation;
   fontSize: FontSize;
+  isLast?: boolean;
   onRetry?: (id: string) => void;
+  onRegenerate?: (id: string) => void;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, onRetry }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, isLast, onRetry, onRegenerate }) => {
   const isUser = message.role === Role.User;
   const [copied, setCopied] = React.useState(false);
 
@@ -146,6 +148,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, onRetry
                {message.content}
              </ReactMarkdown>
              
+             {/* Error Retry Button */}
              {message.isError && (
                <div className="mt-3 flex items-center gap-3">
                  <div className={`text-sm p-2 rounded border flex-1 ${isUser ? 'bg-red-500/20 border-red-400 text-white' : 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20'}`}>
@@ -164,7 +167,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, onRetry
              )}
           </div>
 
-          {/* Footer Actions (Copy button for AI) */}
+          {/* Footer Actions (Copy & Regenerate for AI) */}
           {!isUser && !message.isError && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
               <button 
@@ -175,6 +178,18 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, t, fontSize, onRetry
                 {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                 <span className="text-xs">{copied ? t.copied : t.copy}</span>
               </button>
+
+              {/* Regenerate Button - Only for last message */}
+              {isLast && onRegenerate && (
+                 <button 
+                  onClick={() => onRegenerate(message.id)}
+                  className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex items-center gap-1 ml-2"
+                  title={t.regenerate}
+                >
+                  <RotateCcw size={14} />
+                  <span className="text-xs">{t.regenerate}</span>
+                </button>
+              )}
             </div>
           )}
         </div>

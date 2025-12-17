@@ -160,6 +160,24 @@ const App: React.FC = () => {
     }
   };
 
+  const updateSessionPreviewLocally = (sessionId: string, lastMessage: string) => {
+    setSessions(prev => {
+      const index = prev.findIndex(s => s.id === sessionId);
+      if (index === -1) return prev;
+
+      const updatedSession = {
+        ...prev[index],
+        preview: lastMessage.substring(0, 60) + (lastMessage.length > 60 ? '...' : ''),
+        updatedAt: Date.now()
+      };
+
+      // Move to top
+      const newSessions = [...prev];
+      newSessions.splice(index, 1);
+      return [updatedSession, ...newSessions];
+    });
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !currentSessionId || isGenerating) return;
 
@@ -221,8 +239,8 @@ const App: React.FC = () => {
 
       await saveMessage(currentSessionId, Role.Model, fullResponse);
       
-      const updatedSessions = await getSessions();
-      setSessions(updatedSessions);
+      // Update local session state instead of fetching from DB to avoid overwriting title
+      updateSessionPreviewLocally(currentSessionId, fullResponse);
 
     } catch (error) {
       setMessages(prev => prev.map(m => 
@@ -234,29 +252,29 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRetry = async (failedMessageId: string) => {
+  // Used for both Error Retry and normal Regenerate
+  const handleRegenerate = async (targetMessageId: string) => {
     if (!currentSessionId || isGenerating) return;
 
-    // Find the failed message index
-    const failedMsgIndex = messages.findIndex(m => m.id === failedMessageId);
-    if (failedMsgIndex === -1) return;
+    // Find the message index
+    const msgIndex = messages.findIndex(m => m.id === targetMessageId);
+    if (msgIndex === -1) return;
 
     // Find the previous user message to get the prompt content
-    const prevMsg = messages[failedMsgIndex - 1];
+    const prevMsg = messages[msgIndex - 1];
     if (!prevMsg || prevMsg.role !== Role.User) return;
     
     const textToSend = prevMsg.content;
 
     setIsGenerating(true);
 
-    // Reset the failed message state in UI
+    // Clear content of the target message to indicate loading start
     setMessages(prev => prev.map(m => 
-      m.id === failedMessageId ? { ...m, content: '', isError: false } : m
+      m.id === targetMessageId ? { ...m, content: '', isError: false } : m
     ));
 
-    // Construct history excluding the failed message and the prompt we are retrying
-    // The service handles history construction, so we pass messages up to the user prompt's predecessor
-    const historyContext = messages.slice(0, failedMsgIndex - 1);
+    // Construct history excluding the message we are regenerating
+    const historyContext = messages.slice(0, msgIndex - 1);
 
     try {
       let fullResponse = "";
@@ -266,33 +284,18 @@ const App: React.FC = () => {
         (chunkText) => {
           fullResponse = chunkText;
           setMessages(prev => prev.map(m => 
-            m.id === failedMessageId ? { ...m, content: fullResponse } : m
+            m.id === targetMessageId ? { ...m, content: fullResponse } : m
           ));
         },
         settings.systemInstruction
       );
 
-      // Save success state
-      // Note: We need to update the existing message record in DB, not create a new one, 
-      // but for simplicity and robustness with the simple DB adapter, we can just save it. 
-      // Ideally, the backend would support upsert or we just ignore the failed flag update on 'saveMessage' if ID exists.
-      // Since `saveMessage` generates a new ID usually, let's just assume we are "fixing" the end of conversation.
-      // For this simple app, we can just save a new message logic or assume the previous "error" message is valid history.
-      // Better: Update the specific message in DB if possible, but our `saveMessage` is append-only mostly.
-      // Let's just append a valid message if we were using a real DB, but here let's try to overwrite if ID exists? 
-      // The current saveMessage implementation uses POST (create). 
-      // A cleaner retry in a simple app often just deletes the error and creates new, but we are updating in place UI.
-      // Let's just trigger saveMessage. If ID collision isn't handled by backend, it might throw, but `uuidv4` collision is rare.
-      // Actually, `saveMessage` generates a NEW ID. We want to update the OLD one or replace it.
-      // To keep it simple: We will just save this as a "new" successful message in the DB logic, 
-      // even though UI reuses the bubble.
       await saveMessage(currentSessionId, Role.Model, fullResponse);
       
-      const updatedSessions = await getSessions();
-      setSessions(updatedSessions);
+      // Update local session state
+      updateSessionPreviewLocally(currentSessionId, fullResponse);
 
-      // FIX: Check if title is still default (e.g., first message failed)
-      // If we only have 2 messages (User + Bot), it means it's the start of the chat.
+      // Check title generation if needed (rare for regenerate but possible if first msg failed)
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const isDefaultTitle = currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话');
       
@@ -305,7 +308,7 @@ const App: React.FC = () => {
 
     } catch (error) {
       setMessages(prev => prev.map(m => 
-        m.id === failedMessageId ? { ...m, content: t.error, isError: true } : m
+        m.id === targetMessageId ? { ...m, content: t.error, isError: true } : m
       ));
     } finally {
       setIsGenerating(false);
@@ -376,13 +379,15 @@ const App: React.FC = () => {
                 </p>
               </div>
             ) : (
-              messages.map((msg) => (
+              messages.map((msg, index) => (
                 <MessageItem 
                   key={msg.id} 
                   message={msg} 
                   t={t} 
                   fontSize={settings.fontSize}
-                  onRetry={msg.isError ? handleRetry : undefined}
+                  isLast={index === messages.length - 1}
+                  onRetry={msg.isError ? handleRegenerate : undefined}
+                  onRegenerate={handleRegenerate}
                 />
               ))
             )}
