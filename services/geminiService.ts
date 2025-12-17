@@ -103,7 +103,7 @@ export const streamChatResponse = async (
   }
 };
 
-export const generateTitle = async (firstMessage: string, language: Language = 'en'): Promise<string> => {
+export const generateTitle = async (firstMessage: string, language: Language = 'en'): Promise<string | null> => {
   try {
     const ai = getAiClient();
 
@@ -115,9 +115,13 @@ export const generateTitle = async (firstMessage: string, language: Language = '
       model: MODEL_NAME,
       contents: prompt,
     });
-    return response.text?.trim() || (language === 'zh' ? "新对话" : "New Chat");
+    
+    const title = response.text?.trim();
+    // Return null if empty or looks like a default/error
+    if (!title) return null;
+    return title;
   } catch (e) {
-    // Fail silently for titles, just use default
-    return language === 'zh' ? "新对话" : "New Chat";
+    // Return null on failure so we don't overwrite with "New Chat"
+    return null;
   }
 };

@@ -138,7 +138,7 @@ const App: React.FC = () => {
   };
 
   const handleCreateSession = async () => {
-    const newSession = await createSession(); 
+    const newSession = await createSession(settings.language === 'zh' ? '新对话' : 'New Chat'); 
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     if (window.innerWidth < 768) setIsSidebarOpen(false);
@@ -213,10 +213,17 @@ const App: React.FC = () => {
 
     // 3. Generate Title (Optimistic)
     const currentSession = sessions.find(s => s.id === currentSessionId);
-    if (currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话') && messages.length === 0) {
+    const isDefaultTitle = currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话');
+    
+    // Trigger if default title AND this is likely the first or second message (to avoid regenerating later if not needed)
+    // messages.length is 0 because we haven't updated state closure yet? No, this is inside the handler.
+    // Actually, messages state inside this handler is the OLD state. So messages.length === 0 is correct for first message.
+    if (isDefaultTitle && messages.length === 0) {
        generateTitle(textToSend, settings.language).then(async (newTitle) => {
-         setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
-         await updateSession(currentSessionId, { title: newTitle });
+         if (newTitle) {
+           setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
+           await updateSession(currentSessionId, { title: newTitle });
+         }
        });
     }
 
@@ -295,14 +302,17 @@ const App: React.FC = () => {
       // Update local session state
       updateSessionPreviewLocally(currentSessionId, fullResponse);
 
-      // Check title generation if needed (rare for regenerate but possible if first msg failed)
+      // Check title generation
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const isDefaultTitle = currentSession && (currentSession.title === 'New Chat' || currentSession.title === '新对话');
       
-      if (isDefaultTitle && messages.length <= 2) {
+      // Always try to generate title if it is still default, regardless of message count (in case previous generation failed)
+      if (isDefaultTitle) {
          generateTitle(textToSend, settings.language).then(async (newTitle) => {
-           setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
-           await updateSession(currentSessionId!, { title: newTitle });
+           if (newTitle) {
+             setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: newTitle } : s));
+             await updateSession(currentSessionId!, { title: newTitle });
+           }
          });
       }
 
